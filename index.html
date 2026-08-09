@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <title>Signer</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      background: #f5f5f7;
+      color: #111;
+      padding: 28px 18px;
+    }
+    .card {
+      width: min(100%, 430px);
+      background: rgba(255,255,255,.94);
+      border: 1px solid rgba(0,0,0,.07);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 16px 60px rgba(0,0,0,.08);
+    }
+    h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -.8px; }
+    .sub { margin: 0 0 22px; color: #6e6e73; font-size: 15px; }
+    .field { margin: 12px 0; }
+    .label { display: block; margin: 0 0 7px 2px; font-size: 13px; font-weight: 650; color: #3a3a3c; }
+    .file, .password {
+      width: 100%;
+      min-height: 52px;
+      border: 1px solid #d2d2d7;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      font: inherit;
+      color: #111;
+    }
+    .file { padding: 11px; }
+    button, .installAgain {
+      width: 100%;
+      border: 0;
+      border-radius: 15px;
+      min-height: 54px;
+      margin-top: 18px;
+      background: #007aff;
+      color: #fff;
+      font: inherit;
+      font-weight: 750;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      display: grid;
+      place-items: center;
+    }
+    button:disabled { opacity: .55; cursor: default; }
+    .status {
+      min-height: 22px;
+      margin-top: 14px;
+      color: #6e6e73;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .error { color: #c9342f; }
+    .success { color: #188038; }
+    .installAgain { display: none; margin-top: 10px; background: #111; }
+    .privacy { margin: 18px 3px 0; font-size: 12px; line-height: 1.45; color: #8e8e93; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Signer</h1>
+    <p class="sub">Sign an IPA and install it on this device.</p>
+
+    <form id="form">
+      <div class="field">
+        <label class="label" for="ipa">IPA</label>
+        <input class="file" id="ipa" name="ipa" type="file" accept=".ipa,application/octet-stream" required />
+      </div>
+
+      <div class="field">
+        <label class="label" for="p12">Certificate</label>
+        <input class="file" id="p12" name="p12" type="file" accept=".p12,.pfx,application/x-pkcs12" required />
+      </div>
+
+      <div class="field">
+        <label class="label" for="profile">Provisioning profile</label>
+        <input class="file" id="profile" name="profile" type="file" accept=".mobileprovision,application/octet-stream" required />
+      </div>
+
+      <div class="field">
+        <label class="label" for="password">P12 password</label>
+        <input class="password" id="password" name="password" type="password" autocomplete="off" placeholder="Password" />
+      </div>
+
+      <button id="submit" type="submit">Sign & Install</button>
+      <a id="installAgain" class="installAgain" href="#">Install now</a>
+      <div id="status" class="status"></div>
+    </form>
+
+    <p class="privacy">Signing files are used for this signing job and removed after signing. The signed IPA is kept temporarily so iOS can install it.</p>
+  </main>
+
+  <script>
+    const form = document.getElementById('form');
+    const button = document.getElementById('submit');
+    const status = document.getElementById('status');
+    const installAgain = document.getElementById('installAgain');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      installAgain.style.display = 'none';
+      status.className = 'status';
+      status.textContent = 'Uploading and signing…';
+      button.disabled = true;
+      button.textContent = 'Signing…';
+
+      try {
+        const body = new FormData(form);
+        const response = await fetch('/api/sign', { method: 'POST', body });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) throw new Error(result.error || 'Signing failed.');
+
+        status.className = 'status success';
+        status.textContent = `${result.app.name} signed. Opening the iOS installer…`;
+        button.textContent = 'Signed';
+        installAgain.href = result.installUrl;
+        installAgain.style.display = 'grid';
+
+        // Try the OTA installer immediately. Some Safari versions may require
+        // a second explicit tap; the fallback button above handles that.
+        window.location.href = result.installUrl;
+      } catch (error) {
+        status.className = 'status error';
+        status.textContent = error.message || 'Signing failed.';
+        button.disabled = false;
+        button.textContent = 'Sign & Install';
+      }
+    });
+  </script>
+</body>
+</html>
