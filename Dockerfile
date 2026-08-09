@@ -15,12 +15,15 @@ RUN git clone --depth=1 https://github.com/zhlynn/zsign.git /tmp/zsign \
     && cd /tmp/zsign/build/linux \
     && make clean \
     && make \
-    && install -m 0755 zsign /usr/local/bin/zsign \
+    && install -m 0755 /tmp/zsign/bin/zsign /usr/local/bin/zsign \
+    && zsign -v \
     && rm -rf /tmp/zsign
 
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install --omit=dev
+
 COPY . .
 
 ENV PORT=10000
